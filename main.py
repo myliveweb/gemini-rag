@@ -1,60 +1,81 @@
 import os
 import httpx
-from tqdm import tqdm
+from dotenv import load_dotenv
+import json
 
-def download_files_from_list(file_path, download_dir):
+def login():
     """
-    Downloads files from a list of URLs in a text file.
+    Tests the Scriberr API login endpoint using credentials from the .env file.
+    """
+    print("Testing Scriberr API Login...")
+    load_dotenv()
 
-    Args:
-        file_path (str): The path to the text file containing the URLs.
-        download_dir (str): The directory where the files will be saved.
-    """
-    if not os.path.exists(download_dir):
-        os.makedirs(download_dir)
+    username = os.getenv("USERNAME")
+    password = os.getenv("PASSWORD")
+    base_url = os.getenv("SCRIBERR_API_BASE_URL")
+    
+    if not username or not password or not base_url:
+        print("Error: USERNAME, PASSWORD, and SCRIBERR_API_BASE_URL must be set in the .env file.")
+        return
+
+    url = f"{base_url}/auth/login"
+    headers = {"Content-Type": "application/json"}
+    data = {"username": username, "password": password}
 
     try:
-        with open(file_path, 'r') as f:
-            urls = [line.strip() for line in f if line.strip()]
-    except FileNotFoundError:
-        print(f"Error: The file {file_path} was not found.")
+        with httpx.Client() as client:
+            response = client.post(url, headers=headers, data=json.dumps(data))
+            response.raise_for_status()
+            
+            print("API Response:")
+            print(response.text)
+
+    except httpx.RequestError as exc:
+        print(f"An error occurred while requesting {exc.request.url!r}: {exc}")
+    except httpx.HTTPStatusError as exc:
+        print(f"Error response {exc.response.status_code} while requesting {exc.request.url!r}:")
+        print(response.text)
+    print("API login test finished.")
+
+def queue_stats():
+    """
+    Fetches queue statistics from the Scriberr API using API key authorization.
+    """
+    print("Fetching queue statistics...")
+    load_dotenv()
+
+    api_key = os.getenv("SCRIBERR_API_KEY")
+    base_url = os.getenv("SCRIBERR_API_BASE_URL")
+
+    if not api_key or not base_url:
+        print("Error: SCRIBERR_API_KEY and SCRIBERR_API_BASE_URL must be set in the .env file.")
         return
 
-    if not urls:
-        print("No URLs found in the file.")
-        return
+    url = f"{base_url}/admin/queue/stats"
+    headers = {"X-API-Key": api_key}
 
-    with httpx.Client() as client:
-        for url in tqdm(urls, desc="Downloading files"):
-            try:
-                response = client.get(url, follow_redirects=True)
-                response.raise_for_status()  # Raise an exception for bad status codes
+    try:
+        with httpx.Client() as client:
+            response = client.get(url, headers=headers)
+            response.raise_for_status()
+            
+            print("Queue Stats API Response:")
+            print(response.text)
 
-                # Extract filename from URL
-                filename = os.path.join(download_dir, url.split('/')[-1])
-
-                with open(filename, 'wb') as f:
-                    f.write(response.content)
-
-                tqdm.write(f"Downloaded {url} to {filename}")
-
-            except httpx.RequestError as exc:
-                tqdm.write(f"An error occurred while requesting {exc.request.url!r}: {exc}")
-            except httpx.HTTPStatusError as exc:
-                tqdm.write(f"Error response {exc.response.status_code} while requesting {exc.request.url!r}.")
+    except httpx.RequestError as exc:
+        print(f"An error occurred while requesting {exc.request.url!r}: {exc}")
+    except httpx.HTTPStatusError as exc:
+        print(f"Error response {exc.response.status_code} while requesting {exc.request.url!r}.")
+    print("Queue stats fetch finished.")
 
 
 def main():
     """
-    Main function to initiate the download process.
+    Main function for the application.
     """
-    links_file = 'data/html/Link.txt'
-    download_folder = 'data/mp3'
-    
-    print(f"Starting download of files from {links_file} to {download_folder}")
-    download_files_from_list(links_file, download_folder)
-    print("All downloads completed.")
-
+    # Call functions here as needed
+    # login()
+    queue_stats()
 
 if __name__ == "__main__":
     main()
