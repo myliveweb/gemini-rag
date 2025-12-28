@@ -5,17 +5,17 @@ import json
 
 def login():
     """
-    Tests the Scriberr API login endpoint using credentials from the .env file.
+    Tests the Phoenix API login endpoint using credentials from the .env file.
     """
-    print("Testing Scriberr API Login...")
+    print("Testing Phoenix API Login...")
     load_dotenv()
 
     username = os.getenv("USERNAME")
     password = os.getenv("PASSWORD")
-    base_url = os.getenv("SCRIBERR_API_BASE_URL")
+    base_url = os.getenv("PHOENIX_API_BASE_URL")
     
     if not username or not password or not base_url:
-        print("Error: USERNAME, PASSWORD, and SCRIBERR_API_BASE_URL must be set in the .env file.")
+        print("Error: USERNAME, PASSWORD, and PHOENIX_API_BASE_URL must be set in the .env file.")
         return
 
     url = f"{base_url}/auth/login"
@@ -39,16 +39,16 @@ def login():
 
 def queue_stats():
     """
-    Fetches queue statistics from the Scriberr API using API key authorization.
+    Fetches queue statistics from the Phoenix API using API key authorization.
     """
     print("Fetching queue statistics...")
     load_dotenv()
 
-    api_key = os.getenv("SCRIBERR_API_KEY")
-    base_url = os.getenv("SCRIBERR_API_BASE_URL")
+    api_key = os.getenv("PHOENIX_API_KEY")
+    base_url = os.getenv("PHOENIX_API_BASE_URL")
 
     if not api_key or not base_url:
-        print("Error: SCRIBERR_API_KEY and SCRIBERR_API_BASE_URL must be set in the .env file.")
+        print("Error: PHOENIX_API_KEY and PHOENIX_API_BASE_URL must be set in the .env file.")
         return
 
     url = f"{base_url}/admin/queue/stats"

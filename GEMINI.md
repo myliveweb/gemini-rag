@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-This is a Python project named "my-gemini-api". Based on the `.env` file, it appears to be intended to interact with the Google Gemini API. The project is in a very early stage of development. The main entry point is `main.py`, which currently only prints a hello message. The project also contains an HTML file at `data/html/Leadslab.html` which might be used for data extraction or processing.
+This is a Python project named "my-gemini-api". Based on the `.env` file, it appears to be intended to interact with the Phoenix API. The project is in a very early stage of development. The main entry point is `main.py`, which currently contains functions for interacting with the Phoenix API. The project also contains an HTML file at `data/html/Leadslab.html` which might be used for data extraction or processing.
 
 **Technologies:**
 *   Python (version 3.14+freethreaded, as specified in `.python-version`)
