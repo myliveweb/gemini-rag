@@ -3,9 +3,12 @@ name = "my-gemini-api"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
-requires-python = ">=3.14"
+requires-python = ">=3.11"
 dependencies = [
     "httpx",
     "tqdm",
     "python-dotenv",
+    "psycopg2-binary",
+    "langchain>=1.2.0",
+    "langchain-text-splitters",
 ]
