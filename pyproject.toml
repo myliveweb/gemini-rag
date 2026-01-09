@@ -3,7 +3,7 @@ name = "my-gemini-api"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.10.0, <4.0.0"
 dependencies = [
     "httpx",
     "tqdm",
@@ -11,4 +11,10 @@ dependencies = [
     "psycopg2-binary",
     "langchain>=1.2.0",
     "langchain-text-splitters",
+    "torch>=2.9.1",
+    "langchain-huggingface>=1.2.0",
+    "ollama>=0.6.1",
+    "docling>=2.66.0",
+    "pgvector>=0.4.2",
 ]
+
