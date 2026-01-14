@@ -1,0 +1,93 @@
+import os
+import re
+import string
+import time
+from typing import Any, Dict, List, Literal, Optional
+from langchain_huggingface import HuggingFaceEmbeddings
+from langchain_ollama import ChatOllama
+import torch
+from dotenv import find_dotenv, load_dotenv
+from loguru import logger
+from langchain_chroma import Chroma
+import json
+
+load_dotenv(find_dotenv())
+
+start_time = time.time()
+
+PUNCTUATION_PATTERN = re.compile(f"[{re.escape(string.punctuation)}]")
+WHITESPACE_PATTERN = re.compile(r"\s+")
+
+
+class ChatWithAI:
+    def __init__(self, provider: Literal["deepseek", "qwen"] = "qwen"):
+        self.provider = provider
+        self.embeddings = HuggingFaceEmbeddings(
+            model_name=os.getenv("EMBEDDING_MODEL_NAME"),
+            model_kwargs={"device": "cuda" if torch.cuda.is_available() else "cpu"},
+            encode_kwargs={"normalize_embeddings": True},
+        )
+
+        if provider == "deepseek":
+            self.llm = ChatOllama(
+                model=os.getenv("DEEPSEEK_MODEL_NAME"),
+                temperature=0.1,
+            )
+        elif provider == "qwen":
+            self.llm = ChatOllama(
+                model=os.getenv("QWEN_MODEL_NAME"),
+                temperature=0.1,
+            )
+        else:
+            raise ValueError(f"Неподдерживаемый провайдер: {provider}")
+
+        self.chroma_db = Chroma(
+            persist_directory=os.getenv("CHROMA_PATH"),
+            embedding_function=self.embeddings,
+            collection_name=os.getenv("CHROMA_COLLECTION_NAME"),
+        )
+
+        def get_relevant_context(self, query: str, k: int = 3) -> List[Dict[str, Any]]:
+            """Получение релевантного контекста из базы данных."""
+            try:
+                results = self.chroma_db.similarity_search(self.normalize_query(query), k=k)
+                return [
+                    {
+                        "text": doc.page_content,
+                        "metadata": doc.metadata,
+                    }
+                    for doc in results
+                ]
+            except Exception as e:
+                logger.error(f"Ошибка при получении контекста: {e}")
+                return []
+
+
+        def normalize_query(text: str) -> str:
+            """Нормализация текста: удаление знаков препинания и специальных символов."""
+            if not isinstance(text, str):
+                raise ValueError("Входной текст должен быть строкой")
+
+            # Удаление знаков препинания
+            text = PUNCTUATION_PATTERN.sub(" ", text)
+            # Удаление переносов строк и лишних пробелов
+            text = WHITESPACE_PATTERN.sub(" ", text)
+            # Приведение к нижнему регистру
+            return text.lower().strip()
+
+
+def main():
+    logger.success("Старт")
+
+    # filter_condition = {
+    #     "category": "laptops",
+    #     "price": {"$lt": 60000}
+    # }
+
+    # for i in search_products(query="Сколько стоят умные колонки Яндекса?"):
+    #     # print(i)
+    #     print(json.dumps(i, indent=4, ensure_ascii=False))
+
+
+if __name__ == "__main__":
+    main()
