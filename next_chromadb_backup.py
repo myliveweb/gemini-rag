@@ -4,13 +4,15 @@ import torch
 from loguru import logger
 from langchain_chroma import Chroma
 import json
-from langchain_docling.loader import DoclingLoader # Отказ
-from langchain_opendataloader_pdf import OpenDataLoaderPDFLoader # Мультимодальная загрузка 45 сек
+from langchain_docling.loader import DoclingLoader  # Отказ
+from langchain_opendataloader_pdf import (
+    OpenDataLoaderPDFLoader,
+)  # Мультимодальная загрузка 45 сек
 
 import requests
 from pathlib import Path
 
-from markitdown import MarkItDown # Мульти? 17 сек
+from markitdown import MarkItDown  # Мульти? 17 сек
 
 
 CHROMA_PATH = "./next_chroma_db"
@@ -24,7 +26,19 @@ file_path = Path(output_folder) / filename
 
 FILE_PATH = Path(output_folder) / "2.pdf"
 
+
 def download_file(url: str, file_path: Path):
+    """
+    Загружает файл (например, PDF) из интернета, который будет использоваться
+    в качестве источника знаний для LLM.
+
+    Args:
+        url (str): URL для загрузки файла.
+        file_path (Path): Путь для сохранения файла.
+
+    Raises:
+        requests.exceptions.RequestException: Если возникает ошибка при загрузке.
+    """
     response = requests.get(url, stream=True, timeout=30)
     response.raise_for_status()
     file_path.write_bytes(response.content)
@@ -75,6 +89,7 @@ print(python_guide_content[:1000] + "...")
 
 logger.info(f"Файл загружен за {time.time() - start_time:.2f} сек")
 
+
 # Сборка итогового списка документов с автоинкрементом ID
 # documents = []
 # for index, item in enumerate(raw_data, start=1):
@@ -93,7 +108,7 @@ logger.info(f"Файл загружен за {time.time() - start_time:.2f} се
 # def generate_chroma_db():
 #     try:
 #         start_time = time.time()
-        
+
 #         logger.info("Загрузка модели эмбеддингов...")
 #         embeddings = HuggingFaceEmbeddings(
 #             model_name="sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2",
@@ -101,7 +116,7 @@ logger.info(f"Файл загружен за {time.time() - start_time:.2f} се
 #             encode_kwargs={"normalize_embeddings": True},
 #         )
 #         logger.info(f"Модель загружена за {time.time() - start_time:.2f} сек")
-        
+
 #         logger.info("Создание Chroma DB...")
 #         chroma_db = Chroma.from_texts(
 #             texts=[item["text"] for item in SHOP_DATA],
@@ -112,14 +127,20 @@ logger.info(f"Файл загружен за {time.time() - start_time:.2f} се
 #             collection_name=COLLECTION_NAME,
 #         )
 #         logger.info(f"Chroma DB создана за {time.time() - start_time:.2f} сек")
-        
+
 #         return chroma_db
 #     except Exception as e:
 #         logger.error(f"Ошибка: {e}")
 #         raise
 
+
 def main():
+    """
+    Основная функция для демонстрации загрузки и обработки PDF-файла
+    для последующего использования в LLM-пайплайнах.
+    """
     logger.success("Старт")
+
 
 # Вывод результата
 if __name__ == "__main__":

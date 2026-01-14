@@ -109,28 +109,25 @@ SHOP_DATA = [
             "price": 27500,
             "stock": 6,
         },
-    }
+    },
 ]
 
-# Сборка итогового списка документов с автоинкрементом ID
-# documents = []
-# for index, item in enumerate(raw_data, start=1):
-#     doc = {
-#         "text": item["text"],
-#         "metadata": {
-#             "id": str(index),
-#             "type": "product",
-#             "category": item["category"],
-#             "price": item["price"],
-#             "stock": item["stock"]
-#         }
-#     }
-#     documents.append(doc)
 
 def generate_chroma_db():
+    """
+    Создает и сохраняет векторную базу данных ChromaDB из структурированных
+    данных о товарах (SHOP_DATA). Эта база данных служит базой знаний
+    для LLM, позволяя выполнять семантический поиск по каталогу товаров.
+
+    Returns:
+        Chroma: Экземпляр созданной базы данных ChromaDB.
+
+    Raises:
+        Exception: Если возникает ошибка при создании базы данных.
+    """
     try:
         start_time = time.time()
-        
+
         logger.info("Загрузка модели эмбеддингов...")
         embeddings = HuggingFaceEmbeddings(
             model_name="sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2",
@@ -138,7 +135,7 @@ def generate_chroma_db():
             encode_kwargs={"normalize_embeddings": True},
         )
         logger.info(f"Модель загружена за {time.time() - start_time:.2f} сек")
-        
+
         logger.info("Создание Chroma DB...")
         chroma_db = Chroma.from_texts(
             texts=[item["text"] for item in SHOP_DATA],
@@ -149,13 +146,13 @@ def generate_chroma_db():
             collection_name=COLLECTION_NAME,
         )
         logger.info(f"Chroma DB создана за {time.time() - start_time:.2f} сек")
-        
+
         return chroma_db
     except Exception as e:
         logger.error(f"Ошибка: {e}")
         raise
 
+
 # Вывод результата
 if __name__ == "__main__":
-    # print(json.dumps(documents, indent=4, ensure_ascii=False))
     generate_chroma_db()

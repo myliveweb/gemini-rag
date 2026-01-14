@@ -32,7 +32,19 @@ file_path = Path(output_folder) / filename
 
 
 def normalize_text(text: str) -> str:
-    """Нормализация текста: удаление знаков препинания и специальных символов."""
+    """
+    Нормализует текст, удаляя знаки препинания, лишние пробелы и приводя его к нижнему регистру.
+    Это важный шаг для подготовки текста к векторизации и семантическому поиску.
+
+    Args:
+        text (str): Входной текст для нормализации.
+
+    Returns:
+        str: Нормализованный текст.
+
+    Raises:
+        ValueError: Если входные данные не являются строкой.
+    """
     if not isinstance(text, str):
         raise ValueError("Входной текст должен быть строкой")
 
@@ -45,6 +57,16 @@ def normalize_text(text: str) -> str:
 
 
 def get_markdown_content(file_path: Path) -> str:
+    """
+    Конвертирует содержимое PDF-файла в формат Markdown с помощью библиотеки MarkItDown.
+    Markdown является предпочтительным форматом для дальнейшей обработки текста в LLM-пайплайнах.
+
+    Args:
+        file_path (Path): Путь к PDF-файлу.
+
+    Returns:
+        str: Содержимое файла в формате Markdown.
+    """
     logger.info(f"Обработка PDF файла: {file_path} ...")
     # Initialize the converter
     md = MarkItDown()
@@ -57,8 +79,8 @@ def get_markdown_content(file_path: Path) -> str:
 
 # Configure the text splitter with Q&A-optimized settings
 text_splitter = RecursiveCharacterTextSplitter(
-    chunk_size=os.getenv("MAX_CHUNK_SIZE"),         # Optimal chunk size for Q&A scenarios
-    chunk_overlap=os.getenv("CHUNK_OVERLAP"),      # 20% overlap to preserve context
+    chunk_size=os.getenv("MAX_CHUNK_SIZE"),  # Optimal chunk size for Q&A scenarios
+    chunk_overlap=os.getenv("CHUNK_OVERLAP"),  # 20% overlap to preserve context
     separators=["\n\n", "\n", ". ", " ", ""],  # Split hierarchy
     length_function=len,
     is_separator_regex=False,
@@ -66,27 +88,57 @@ text_splitter = RecursiveCharacterTextSplitter(
 
 
 def process_document(doc, text_splitter):
-    """Process a single document into chunks."""
+    """
+    Обрабатывает один документ, разделяя его на части (чанки), оптимизированные для LLM.
+    Разделение на чанки необходимо для того, чтобы не превышать лимит токенов модели.
+
+    Args:
+        doc (dict): Словарь с контентом и метаданными документа.
+        text_splitter: Экземпляр сплиттера текста.
+
+    Returns:
+        list: Список чанков с нормализованным контентом и метаданными.
+    """
     doc_chunks = text_splitter.split_text(doc["content"])
-    return [{"content": normalize_text(chunk), "metadata": doc["metadata"]} for chunk in doc_chunks]
+    return [
+        {"content": normalize_text(chunk), "metadata": doc["metadata"]}
+        for chunk in doc_chunks
+    ]
 
 
 def get_documents(file_path: Path) -> dict[str, Any]:
+    """
+    Извлекает и структурирует контент из PDF-файла, подготавливая его
+    к дальнейшей обработке и добавлению в векторную базу данных.
+
+    Args:
+        file_path (Path): Путь к PDF-файлу.
+
+    Returns:
+        dict[str, Any]: Словарь с метаданными и текстом документа.
+    """
     markdown_str = get_markdown_content(file_path)
     # Organize the converted document
     document = {
-        'metadata': {
-            'file_name': str(file_path),
-            'category': 'books'
-        },
-        'text': markdown_str
+        "metadata": {"file_name": str(file_path), "category": "books"},
+        "text": markdown_str,
     }
 
     return document
 
 
 def split_text_into_chunks(text: str, metadata: Dict[str, Any]) -> List[Any]:
-    """Разделение текста на чанки с сохранением метаданных."""
+    """
+    Разделяет длинный текст на более мелкие чанки, что критически важно для
+    эффективной работы с LLM, так как позволяет обрабатывать большие объемы информации.
+
+    Args:
+        text (str): Текст для разделения.
+        metadata (Dict[str, Any]): Метаданные для добавления к каждому чанку.
+
+    Returns:
+        List[Any]: Список чанков (документов).
+    """
     text_splitter = RecursiveCharacterTextSplitter(
         chunk_size=int(os.getenv("MAX_CHUNK_SIZE")),
         chunk_overlap=int(os.getenv("CHUNK_OVERLAP")),
@@ -100,7 +152,20 @@ def split_text_into_chunks(text: str, metadata: Dict[str, Any]) -> List[Any]:
 
 
 def generate_chroma_db(documents) -> Optional[Chroma]:
-    """Инициализация ChromaDB."""
+    """
+    Создает векторную базу данных ChromaDB из набора документов.
+    Процесс включает векторизацию текста с помощью модели эмбеддингов
+    и сохранение векторов для последующего семантического поиска.
+
+    Args:
+        documents (list): Список документов для добавления.
+
+    Returns:
+        Optional[Chroma]: Экземпляр ChromaDB или None, если нет документов.
+
+    Raises:
+        Exception: Если происходит ошибка при инициализации ChromaDB.
+    """
     try:
         # Создаем директорию для хранения базы данных, если она не существует
         os.makedirs(os.getenv("CHROMA_PATH"), exist_ok=True)
@@ -152,6 +217,11 @@ def generate_chroma_db(documents) -> Optional[Chroma]:
 
 
 def main():
+    """
+    Основная функция для запуска полного пайплайна:
+    1. Получение и обработка документов из PDF.
+    2. Создание и наполнение векторной базы данных ChromaDB.
+    """
     logger.success("Старт конвертер")
 
     processed_document = get_documents(file_path)
