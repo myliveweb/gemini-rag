@@ -2,6 +2,11 @@ import os
 import re
 import string
 import time
+import shutil
+
+# Замер времени начала загрузки
+script_load_start = time.time()
+
 from typing import Any, Dict, List, Literal, Optional
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_ollama import ChatOllama
@@ -18,10 +23,11 @@ from pathlib import Path
 
 load_dotenv(find_dotenv())
 
-start_time = time.time()
-
 PUNCTUATION_PATTERN = re.compile(f"[{re.escape(string.punctuation)}]")
 WHITESPACE_PATTERN = re.compile(r"\s+")
+
+# Флаг для очистки существующей базы данных
+CLEAR_EXISTING_DB = True
 
 # Get the file path
 output_folder = "documents"
@@ -29,6 +35,10 @@ output_folder = "documents"
 filename = "1.pdf"
 
 file_path = Path(output_folder) / filename
+
+# Замер времени окончания загрузки и начальной настройки
+script_load_end = time.time()
+logger.info(f"Загрузка скрипта и импортов: {script_load_end - script_load_start:.2f} сек")
 
 
 def normalize_text(text: str) -> str:
@@ -67,13 +77,15 @@ def get_markdown_content(file_path: Path) -> str:
     Returns:
         str: Содержимое файла в формате Markdown.
     """
+    start_time = time.time()
     logger.info(f"Обработка PDF файла: {file_path} ...")
     # Initialize the converter
     md = MarkItDown()
 
     # Convert the Python guide to markdown
     result = md.convert(file_path)
-    logger.info(f"Файл обработан за {time.time() - start_time:.2f} сек")
+    end_time = time.time()
+    logger.info(f"PDF обработан за {end_time - start_time:.2f} сек")
     return result.text_content
 
 
@@ -139,6 +151,7 @@ def split_text_into_chunks(text: str, metadata: Dict[str, Any]) -> List[Any]:
     Returns:
         List[Any]: Список чанков (документов).
     """
+    start_time = time.time()
     text_splitter = RecursiveCharacterTextSplitter(
         chunk_size=int(os.getenv("MAX_CHUNK_SIZE")),
         chunk_overlap=int(os.getenv("CHUNK_OVERLAP")),
@@ -148,6 +161,8 @@ def split_text_into_chunks(text: str, metadata: Dict[str, Any]) -> List[Any]:
     )
 
     chunks = text_splitter.create_documents(texts=[text], metadatas=[metadata])
+    end_time = time.time()
+    logger.info(f"Текст разделен на чанки за {end_time - start_time:.2f} сек")
     return chunks
 
 
@@ -167,19 +182,27 @@ def generate_chroma_db(documents) -> Optional[Chroma]:
         Exception: Если происходит ошибка при инициализации ChromaDB.
     """
     try:
+        chroma_path = os.getenv("CHROMA_PATH")
+        if CLEAR_EXISTING_DB and os.path.exists(chroma_path):
+            logger.warning(f"Удаление существующей базы данных: {chroma_path}")
+            shutil.rmtree(chroma_path)
+
         # Создаем директорию для хранения базы данных, если она не существует
-        os.makedirs(os.getenv("CHROMA_PATH"), exist_ok=True)
+        os.makedirs(chroma_path, exist_ok=True)
 
         if not documents:
             logger.warning("Нет документов для добавления в базу данных")
             return None
 
         # Инициализируем модель эмбеддингов
+        embedding_start = time.time()
         embeddings = HuggingFaceEmbeddings(
             model_name=os.getenv("EMBEDDING_MODEL_NAME"),
             model_kwargs={"device": "cuda" if torch.cuda.is_available() else "cpu"},
             encode_kwargs={"normalize_embeddings": True},
         )
+        embedding_end = time.time()
+        logger.info(f"Загрузка модели эмбеддингов: {embedding_end - embedding_start:.2f} сек")
 
         # Подготавливаем данные для Chroma
         all_chunks = []
@@ -191,6 +214,7 @@ def generate_chroma_db(documents) -> Optional[Chroma]:
             )
 
         # Создаем векторное хранилище
+        db_creation_start = time.time()
         texts = [normalize_text(chunk.page_content) for chunk in all_chunks]
         metadatas = [chunk.metadata for chunk in all_chunks]
         ids = [f"doc_{i}" for i in range(len(all_chunks))]
@@ -200,15 +224,16 @@ def generate_chroma_db(documents) -> Optional[Chroma]:
             embedding=embeddings,
             ids=ids,
             metadatas=metadatas,
-            persist_directory=os.getenv("CHROMA_PATH"),
+            persist_directory=chroma_path,
             collection_name=os.getenv("CHROMA_COLLECTION_NAME"),
             collection_metadata={
                 "hnsw:space": "cosine",
             },
         )
-
+        db_creation_end = time.time()
         logger.success(
-            f"База Chroma инициализирована, добавлено {len(all_chunks)} чанков из {len(documents)} документов"
+            f"База Chroma инициализирована и данные внесены за: {db_creation_end - db_creation_start:.2f} сек. "
+            f"Добавлено {len(all_chunks)} чанков из {len(documents)} документов"
         )
         return chroma_db
     except Exception as e:
@@ -222,6 +247,7 @@ def main():
     1. Получение и обработка документов из PDF.
     2. Создание и наполнение векторной базы данных ChromaDB.
     """
+    main_start_time = time.time()
     logger.success("Старт конвертер")
 
     processed_document = get_documents(file_path)
@@ -229,26 +255,8 @@ def main():
 
     generate_chroma_db(documents)
 
-    # Process all documents and create chunks
-    # all_chunks = []
-    # for doc in documents:
-    #     doc_chunks = process_document(doc, text_splitter)
-    #     all_chunks.extend(doc_chunks)
-
-    # source_counts = Counter(chunk["metadata"]["file"] for chunk in all_chunks)
-    # chunk_lengths = [len(chunk["content"]) for chunk in all_chunks]
-
-    # print(f"Total chunks created: {len(all_chunks)}")
-    # print(f"Chunk length: {min(chunk_lengths)}-{max(chunk_lengths)} characters")
-    # print(f"Source document: {Path(documents[0]['metadata']["file"]).name}")
-
-    # # Show chunks
-    # i = 1
-    # for chunk in all_chunks[100:120]:
-    #     print(f"Chunk {i}: {chunk}")
-    #     i += 1
-
-    logger.success(f"Время исполнения: {time.time() - start_time:.2f} сек")
+    main_end_time = time.time()
+    logger.success(f"Общее время исполнения: {main_end_time - main_start_time:.2f} сек")
 
 
 if __name__ == "__main__":
